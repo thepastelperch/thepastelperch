@@ -1,0 +1,20 @@
+# my own working backups - 77 files / ~37 MB of snapshots, not part of the site
+backup/
+
+# build/cache tooling I wrote to maintain images.js (not site content)
+*.ps1
+start-server.bat
+
+# art that nothing references any more (deleted gems + unused bits)
+oldheartrhinestone.png
+oldrhinestone2.png
+rhinestone3.png
+circle.png
+cursor.png
+printablesbox.png
+x.png
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store
