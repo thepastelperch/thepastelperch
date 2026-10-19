@@ -297,6 +297,7 @@
     var availH = Math.max(80, window.innerHeight - bar - pad * 2);
     var availW = Math.max(80, window.innerWidth - pad * 2);
     w.style.maxHeight = availH + 'px';
+    fitPaintArea(w);
     var r = w.getBoundingClientRect();
     var visH = Math.min(r.height, availH);
     var visW = Math.min(r.width, availW);
@@ -304,6 +305,34 @@
     var left = Math.min(Math.max(pad, r.left), window.innerWidth - visW - pad);
     if (Math.abs(top - r.top) > 0.5) w.style.top = top + 'px';
     if (Math.abs(left - r.left) > 0.5) w.style.left = left + 'px';
+  }
+  /* The Nail Designer sizes its canvas from a CSS variable, so it has to be
+     told how much room is actually left inside the window (after the title
+     bar and the middle column's padding). Measuring beats guessing at a fixed
+     subtraction: whenever the window is clamped to a height smaller than the
+     viewport, a 100vh-based guess is simply wrong and the canvas hangs out
+     the bottom. */
+  function fitPaintArea(w) {
+    if (!w || w.id !== 'w6') return;
+    var wrap = w.querySelector('.pt-wrap');
+    if (!wrap) return;
+    var bar = w.querySelector('.titlebar');
+    var barH = bar ? bar.offsetHeight : 0;
+    /* Pin the window's height explicitly rather than letting it hug content.
+       With height:auto the window shrank to whatever the previous measurement
+       implied, which ratchets smaller on every resize (it settled around
+       200px on a 430px viewport instead of using the ~386px available). */
+    var availH = Math.max(80, window.innerHeight - startbarH() - 16);
+    w.style.height = availH + 'px';
+    var avail = w.clientHeight - barH;
+    if (!(avail > 60)) return;          // window too small to measure yet
+    var h = Math.floor(avail) + 'px';
+    w.style.setProperty('--pt-h', h);
+    /* Set the wrap's height inline rather than through the stylesheet: as a
+       flex item of the window's content row it was being stretched back to
+       its content height (691px) and the var-based rule never took effect,
+       which is exactly what left the columns hanging out. */
+    wrap.style.height = h;
   }
   function clampAllWins() {
     document.querySelectorAll('.window.open').forEach(clampWin);
@@ -322,6 +351,7 @@
     w.style.height = 'auto';
     w.style.zIndex = ++zTop;
     clampWin(w);
+    fitPaintArea(w);
   }
   function closeWin(w) { w.classList.remove('open'); }
 
@@ -2758,10 +2788,16 @@
                               but short window shrinks the square instead of it
                               spilling out the bottom.
      aspect-ratio then keeps it square (a plain max-height would squash it). */
-  width:min(100%, 1024px, calc(100vh - 170px)) !important;
+  width:min(100%, 1024px, var(--pt-h, calc(100vh - 170px))) !important;
   height:auto !important; aspect-ratio:1 / 1; align-self:center;
 }
 #w6 .pt-mid canvas { width:100%; height:100%; }
+/* Nothing may spill out of the window: the wrap and the middle column clip,
+   and the two side columns scroll their own overflow - so on a short screen
+   the tools stay reachable and only the canvas scales down. */
+#w6 .pt-wrap { overflow:hidden; min-height:0; }
+#w6 .pt-col  { min-height:0; }
+#w6 .pt-mid  { overflow:hidden; }
 /* one column on phones / narrow windows */
 @media (max-width: 900px) {
   .pt-wrap { flex-direction:column; }
