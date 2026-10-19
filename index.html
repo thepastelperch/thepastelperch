@@ -281,6 +281,34 @@
   }
   tick(); setInterval(tick, 1000);
 
+  /* Windows are position:fixed inside an overflow:hidden body, so anything
+     hanging below the viewport (or under the start bar) is simply unreachable.
+     This nudges every open window back inside the visible area instead of
+     letting it get cut off, and caps max-height so a tall window's own
+     content scrolls rather than disappearing off the bottom. */
+  function startbarH() {
+    var b = document.getElementById('startbar');
+    return b ? b.offsetHeight : 44;
+  }
+  function clampWin(w) {
+    if (!w || !w.classList.contains('open')) return;
+    var pad = 8;
+    var bar = startbarH();
+    var availH = Math.max(80, window.innerHeight - bar - pad * 2);
+    var availW = Math.max(80, window.innerWidth - pad * 2);
+    w.style.maxHeight = availH + 'px';
+    var r = w.getBoundingClientRect();
+    var visH = Math.min(r.height, availH);
+    var visW = Math.min(r.width, availW);
+    var top = Math.min(Math.max(pad, r.top), window.innerHeight - bar - visH - pad);
+    var left = Math.min(Math.max(pad, r.left), window.innerWidth - visW - pad);
+    if (Math.abs(top - r.top) > 0.5) w.style.top = top + 'px';
+    if (Math.abs(left - r.left) > 0.5) w.style.left = left + 'px';
+  }
+  function clampAllWins() {
+    document.querySelectorAll('.window.open').forEach(clampWin);
+  }
+
   function openWin(id) {
     var w = document.getElementById(id);
     w.classList.add('open');
@@ -292,8 +320,8 @@
     /* fill the width, but only take the height the content actually needs -
        on a big screen the old viewport-locked height left a big empty band */
     w.style.height = 'auto';
-    w.style.maxHeight = 'calc(100vh - 56px)';
     w.style.zIndex = ++zTop;
+    clampWin(w);
   }
   function closeWin(w) { w.classList.remove('open'); }
 
@@ -321,10 +349,25 @@
       var r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
       bar.setPointerCapture(e.pointerId);
       function move(ev) { w.style.left = (ev.clientX - ox) + 'px'; w.style.top = (ev.clientY - oy) + 'px'; }
-      function up() { bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); }
+      function up() {
+        bar.removeEventListener('pointermove', move);
+        bar.removeEventListener('pointerup', up);
+        clampWin(w);        // a drag can shove a window off-screen; pull it back
+      }
       bar.addEventListener('pointermove', move);
       bar.addEventListener('pointerup', up);
     });
+  });
+
+  /* shrink the browser window and any open window that now hangs below the
+     fold (or under the start bar) gets pulled back into view */
+  var clampTimer = null;
+  window.addEventListener('resize', function() {
+    clearTimeout(clampTimer);
+    clampTimer = setTimeout(clampAllWins, 60);
+  });
+  window.addEventListener('orientationchange', function() {
+    setTimeout(clampAllWins, 120);
   });
 
   document.getElementById('homeBtn').addEventListener('click', function() {
